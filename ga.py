@@ -17,7 +17,7 @@ def selection(pop,fitness,pop_size):
     pop = np.delete(pop,elite,axis=0)
     P = [f/sum(fitness) for f in fitness]
     index = list(range(pop.shape[0]))
-    index_selected = np.random.choice(index, size=pop_size-1, replace=False, p=P)             
+    index_selected = np.random.choice(index, size=pop_size-1, replace=False, p=P)
     s = 0
     for j in range(pop_size-1):
         next_generation[j+1] = pop[index_selected[s]]
