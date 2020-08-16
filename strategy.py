@@ -14,11 +14,22 @@ import pandas as pd
 
 
 
-def mesh(agent_active,maximum,lower_bounds,upper_bounds,solutions,pop_size,
-               crossover_rate,mutation_rate,no_generations,step_size,rate):
+def mesh(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec):
+    
+    lower_bounds = bounds[0]
+    upper_bounds = bounds[1]
+        
+    
+    pop_size = ga_param[0] 
+    crossover_rate = ga_param[1]
+    mutation_rate = ga_param[2] 
+    no_generations = ga_param[3] 
+    step_size = ga_param[4] 
+    rate = ga_param[5] 
     
     # Each variable correspond to an agent
     no_variables = agent_active.shape[0]
+
 
     # Initial population of genetic algoritm
     pop = np.zeros((pop_size,no_variables))
@@ -37,7 +48,7 @@ def mesh(agent_active,maximum,lower_bounds,upper_bounds,solutions,pop_size,
         # crossover, mutation, fitness and local search function
         offspring1 = ga.crossover(pop, crossover_rate)
         offspring2 = ga.mutation(pop, mutation_rate)
-        [fitness,diff,ag,dim]  = objective.objective_function(pop,solutions,maximum,agent_active)
+        [fitness,diff,ag,dim]  = objective.objective_function(pop,novelties_aux_cap,maximum,agent_active,enc_dec)
         offspring3 = ga.local_search(pop, fitness, lower_bounds, upper_bounds, step_size, rate)
         step_size = step_size*0.98
         if step_size<1:
@@ -48,7 +59,7 @@ def mesh(agent_active,maximum,lower_bounds,upper_bounds,solutions,pop_size,
         extended_pop[pop_size:pop_size+crossover_rate] = offspring1
         extended_pop[pop_size+crossover_rate:pop_size+crossover_rate+mutation_rate]=offspring2
         extended_pop[pop_size+crossover_rate+mutation_rate:pop_size+crossover_rate+mutation_rate+2*no_variables*rate]=offspring3
-        [fitness,diff,ag,dim]  = objective.objective_function(extended_pop,solutions,maximum,agent_active)
+        [fitness,diff,ag,dim]  = objective.objective_function(extended_pop,novelties_aux_cap,maximum,agent_active,enc_dec)
         pop = ga.selection(extended_pop, fitness, pop_size)
         
         print("Generation: ", g, ", current fitness value: ", min(fitness))
@@ -61,9 +72,9 @@ def mesh(agent_active,maximum,lower_bounds,upper_bounds,solutions,pop_size,
 
     
     # Find the global minimum (global solution)
-    [fitness,diff,ag,dim]  = objective.objective_function(global_best,solutions,maximum,agent_active)
+    [fitness,diff,ag,dim]  = objective.objective_function(global_best,novelties_aux_cap,maximum,agent_active,enc_dec)
     index = np.argmin(fitness)
-    print("Best solution = ", global_best[index])
+    print("Best solution = ", np.ceil(global_best[index]))
     print("Best fitness value= ", min(fitness))    
     best = np.ceil(global_best[index])
     #dife = diff[index]
@@ -72,74 +83,60 @@ def mesh(agent_active,maximum,lower_bounds,upper_bounds,solutions,pop_size,
 
     return [best,prog,nes,dim]
 
-def aux_cap(lunch_key,best,agent_active,week,bounds_Rtg,aux_cap,ga_param,novelties):
+# def aux_cap(lunch_key,best,agent_active,week,bounds_Rtg,aux_cap,ga_param,novelties):
     
-    lower_bounds = bounds_Rtg[0]
-    upper_bounds = bounds_Rtg[1]
-        
-    
-    pop_size = ga_param[0] 
-    crossover_rate = ga_param[1]
-    mutation_rate = ga_param[2] 
-    no_generations = 15
-    #ga_param[3] 
-    step_size = ga_param[4] 
-    rate = ga_param[5] 
-    
-    # Each variable correspond to an agent
-    no_variables = agent_active.shape[0]
 
-    # Initial population of genetic algoritm
-    pop = np.zeros((pop_size,no_variables))
-    for s in range(pop_size):
-        for h in range(no_variables):
-            pop[s,h] = np.random.random_integers(lower_bounds[h],upper_bounds[h])
+#     # Initial population of genetic algoritm
+#     pop = np.zeros((pop_size,no_variables))
+#     for s in range(pop_size):
+#         for h in range(no_variables):
+#             pop[s,h] = np.random.random_integers(lower_bounds[h],upper_bounds[h])
     
-    extended_pop = np.zeros((pop_size+crossover_rate+mutation_rate+2*no_variables*rate,pop.shape[1]))    
+#     extended_pop = np.zeros((pop_size+crossover_rate+mutation_rate+2*no_variables*rate,pop.shape[1]))    
     
-    g = 0
-    global_best = np.zeros((no_generations+1,no_variables))
+#     g = 0
+#     global_best = np.zeros((no_generations+1,no_variables))
 
-    # Evolution and new generation into the population
-    while g <= no_generations:
+#     # Evolution and new generation into the population
+#     while g <= no_generations:
 
-        # crossover, mutation, fitness and local search function
-        offspring1 = ga.crossover(pop, crossover_rate)
-        offspring2 = ga.mutation(pop, mutation_rate)
-        [fitness,diff,ag,dim]  = objective.objfun_aux_cap(pop,aux_cap,week[0],agent_active,lunch_key,best,novelties)
-        offspring3 = ga.local_search(pop, fitness, lower_bounds, upper_bounds, step_size, rate)
-        step_size = step_size*0.98
-        if step_size<1:
-            step_size = 1
+#         # crossover, mutation, fitness and local search function
+#         offspring1 = ga.crossover(pop, crossover_rate)
+#         offspring2 = ga.mutation(pop, mutation_rate)
+#         [fitness,diff,ag,dim]  = objective.objfun_aux_cap(pop,aux_cap,week[0],agent_active,lunch_key,best,novelties)
+#         offspring3 = ga.local_search(pop, fitness, lower_bounds, upper_bounds, step_size, rate)
+#         step_size = step_size*0.98
+#         if step_size<1:
+#             step_size = 1
             
-        # Put into the previous population the new generations    
-        extended_pop[0:pop_size] = pop
-        extended_pop[pop_size:pop_size+crossover_rate] = offspring1
-        extended_pop[pop_size+crossover_rate:pop_size+crossover_rate+mutation_rate]=offspring2
-        extended_pop[pop_size+crossover_rate+mutation_rate:pop_size+crossover_rate+mutation_rate+2*no_variables*rate]=offspring3
-        [fitness,diff,ag,dim]  = objective.objfun_aux_cap(extended_pop,aux_cap,week[0],agent_active,lunch_key,best,novelties)
-        pop = ga.selection(extended_pop, fitness, pop_size)
+#         # Put into the previous population the new generations    
+#         extended_pop[0:pop_size] = pop
+#         extended_pop[pop_size:pop_size+crossover_rate] = offspring1
+#         extended_pop[pop_size+crossover_rate:pop_size+crossover_rate+mutation_rate]=offspring2
+#         extended_pop[pop_size+crossover_rate+mutation_rate:pop_size+crossover_rate+mutation_rate+2*no_variables*rate]=offspring3
+#         [fitness,diff,ag,dim]  = objective.objfun_aux_cap(extended_pop,aux_cap,week[0],agent_active,lunch_key,best,novelties)
+#         pop = ga.selection(extended_pop, fitness, pop_size)
         
-        print("Generation: ", g, ", current fitness value: ", min(fitness))
+#         print("Generation: ", g, ", current fitness value: ", min(fitness))
         
-        # Find the local minimum (local solution)
-        index = np.argmin(fitness)
-        current_best = extended_pop[index]
-        global_best[g]=current_best
-        g +=1
+#         # Find the local minimum (local solution)
+#         index = np.argmin(fitness)
+#         current_best = extended_pop[index]
+#         global_best[g]=current_best
+#         g +=1
 
     
-    # Find the global minimum (global solution)
-    [fitness,diff,ag,dim]  = objective.objfun_aux_cap(global_best,aux_cap,week[0],agent_active,lunch_key,best,novelties)
-    index = np.argmin(fitness)
-    print("Best solution = ", global_best[index])
-    print("Best fitness value= ", min(fitness))    
-    best = np.ceil(global_best[index])
-    #dife = diff[index]
-    prog = ag[index]
-    nes = np.ceil(week[0])
+#     # Find the global minimum (global solution)
+#     [fitness,diff,ag,dim]  = objective.objfun_aux_cap(global_best,aux_cap,week[0],agent_active,lunch_key,best,novelties)
+#     index = np.argmin(fitness)
+#     print("Best solution = ", global_best[index])
+#     print("Best fitness value= ", min(fitness))    
+#     best = np.ceil(global_best[index])
+#     #dife = diff[index]
+#     prog = ag[index]
+#     nes = np.ceil(week[0])
     
-    return  [best,prog,nes,dim]
+#     return  [best,prog,nes,dim]
 
 
 

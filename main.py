@@ -22,21 +22,28 @@ agent_active = pd.read_excel('./Scheduling/Agents&Nov/agents_nov.xlsx', sheet_na
 
 # scheduling parameters for active agents
 
-interval = 15
+interval = 15 # Change 
 
 init_hour = [7,0]
 stop_hour = [22,15]
 
-laboral_time = [7,45]
-
 stop_hour_am = [17,45]
+stop_hour_mther = [17,45]
+stop_hour_sede = [15,45]
+
 init_hour_pm = [13,0]
-stop_hour_mther = [18,00]
-stop_hour_sede = [16,0]
 
-lunch_time_init = [8,0]
-lunch_time_stop = [11,0]
+lunch_time_init = [12,0]
+lunch_time_stop = [15,45]
 
+
+laboral_time = [7,45]
+lunch_hour_total = [1,0]
+train_hour_total = [1,0]
+
+
+# encode and decode information 
+enc_dec = scheduling.encode_decode(interval, lunch_hour_total, train_hour_total)
 
 # forecast for each block time
 fct = pd.read_excel('./Forecasting/forecst.xlsx', sheet_name='forecst',header=None)
@@ -68,41 +75,25 @@ rate = 10
 ## ---------------------------------------------------------------------------
 
 hour_time =[init_hour, stop_hour, laboral_time, stop_hour_am, 
-            init_hour_pm, stop_hour_mther, stop_hour_sede]                                                                                                          
+            init_hour_pm, stop_hour_mther, stop_hour_sede,
+            lunch_time_init, lunch_time_stop,lunch_hour_total]                                                                                                          
 
 
-[keys, novelties] = scheduling.schedul_gen(interval, hour_time)
+novelties = scheduling.schedul_gen(interval, hour_time)
 
-lower_bounds = []
-upper_bounds = []    
 
-for x in range(agent_active.shape[0]):
-    if agent_active[x,1] == 'NO':
-        lower_bounds.append(keys[0][0])
-        upper_bounds.append(keys[0][1])
-    elif agent_active[x,1] == 'AM':    
-        lower_bounds.append(keys[1][0])
-        upper_bounds.append(keys[1][1])
-    elif agent_active[x,1] == 'PM':     
-        lower_bounds.append(keys[2][0])
-        upper_bounds.append(keys[2][1])
-    elif agent_active[x,1] == 'MAMA':
-        lower_bounds.append(keys[3][0])
-        upper_bounds.append(keys[3][1])
-    elif agent_active[x,1] == 'SEDE':
-        lower_bounds.append(keys[4][0])    
-        upper_bounds.append(keys[4][1])
-    else:
-        print("el agente ", agent_active[x][0], " tiene una novedad particular, generar un horario manual" )
-        lower_bounds.append(0) 
-        upper_bounds.append(0) 
+novelties_aux_cap = scheduling.sched_aux_cap(interval, novelties, hour_time)
+
+bounds = scheduling.sched_bounds_ga(novelties_aux_cap, agent_active)
+
+ga_param = [pop_size,crossover_rate,mutation_rate,no_generations,step_size,rate]  
              
 maximum = []
 for d in range(int(forcst.shape[0]/7)):
     maximum.append(np.ceil(max([monday[d], tuesday[d], wednesday[d], thursday[d], friday[d]])))
    
 
-[best,prog,nes,dim] = strategy.mesh(agent_active[:,1],maximum,lower_bounds,upper_bounds,novelties,pop_size, crossover_rate,mutation_rate,no_generations,step_size,rate)
+[best,prog,nes,dim] = strategy.mesh(agent_active[:,1],maximum,bounds,novelties_aux_cap,ga_param,enc_dec)
 
 
 # Plot the global solution
@@ -123,68 +114,66 @@ plt.show()
 ## ---------------------------------------------------------------------------
 ## Rostering
 ## ---------------------------------------------------------------------------
-lunch_time = [lunch_time_init,lunch_time_stop]
 
-[lunch_key,aux_cap] = scheduling.sched_aux_cap(interval, lunch_time)
 
-without_l = aux_cap[0]
-with_l = aux_cap[1]
+# without_l = aux_cap[0]
+# with_l = aux_cap[1]
 
-lunch_init = lunch_key[0]
-lunch_stop = lunch_key[1]
+# lunch_init = lunch_key[0]
+# lunch_stop = lunch_key[1]
 
-lower_bounds_Rtg = [0]*agent_active.shape[0]
-upper_bounds_Rtg = []    
+# lower_bounds_Rtg = [0]*agent_active.shape[0]
+# upper_bounds_Rtg = []    
 
-for x in range(agent_active.shape[0]):
-    if agent_active[x,1] == 'NO':
-       if  lunch_init < best[x] < lunch_stop:
-           upper_bounds_Rtg.append(with_l.shape[1]-1)
-       else:
-           upper_bounds_Rtg.append(without_l.shape[1]-1)
+# for x in range(agent_active.shape[0]):
+#     if agent_active[x,1] == 'NO':
+#        if  lunch_init < best[x] < lunch_stop:
+#            upper_bounds_Rtg.append(with_l.shape[1]-1)
+#        else:
+#            upper_bounds_Rtg.append(without_l.shape[1]-1)
            
-    elif agent_active[x,1] == 'AM':    
-       if lunch_init < best[x] < lunch_stop:
-           upper_bounds_Rtg.append(with_l.shape[1]-1)
-       else:
-           upper_bounds_Rtg.append(without_l.shape[1]-1)       
+#     elif agent_active[x,1] == 'AM':    
+#        if lunch_init < best[x] < lunch_stop:
+#            upper_bounds_Rtg.append(with_l.shape[1]-1)
+#        else:
+#            upper_bounds_Rtg.append(without_l.shape[1]-1)       
         
-    elif agent_active[x,1] == 'PM':             
-        upper_bounds_Rtg.append(without_l.shape[1]-1)
+#     elif agent_active[x,1] == 'PM':             
+#         upper_bounds_Rtg.append(without_l.shape[1]-1)
         
-    elif agent_active[x,1] == 'MAMA':
-       if  lunch_init < best[x] < lunch_stop:
-           upper_bounds_Rtg.append(with_l.shape[1]-1)
-       else:
-           upper_bounds_Rtg.append(without_l.shape[1]-1)        
+#     elif agent_active[x,1] == 'MAMA':
+#        if  lunch_init < best[x] < lunch_stop:
+#            upper_bounds_Rtg.append(with_l.shape[1]-1)
+#        else:
+#            upper_bounds_Rtg.append(without_l.shape[1]-1)        
         
-    elif agent_active[x,1] == 'SEDE':        
-        upper_bounds_Rtg.append(without_l.shape[1]-1)
+#     elif agent_active[x,1] == 'SEDE':        
+#         upper_bounds_Rtg.append(without_l.shape[1]-1)
         
-    else:
-        upper_bounds_Rtg.append(0) 
+#     else:
+#         upper_bounds_Rtg.append(0) 
 
-bounds_Rtg = [lower_bounds_Rtg,upper_bounds_Rtg]
+# bounds_Rtg = [lower_bounds_Rtg,upper_bounds_Rtg]
 
-ga_param = [pop_size,crossover_rate,mutation_rate,no_generations,step_size,rate]   
+# ga_param = [pop_size,crossover_rate,mutation_rate,no_generations,step_size,rate]   
 
-week = np.ceil([monday,tuesday,wednesday,thursday,friday])
+# week = np.ceil([monday,tuesday,wednesday,thursday,friday])
 
-[bes,pro,ne,di] = strategy.aux_cap(lunch_key,best,agent_active[:,1],week,bounds_Rtg,aux_cap,ga_param,novelties)
+# [bes,pro,ne,di] = strategy.aux_cap(lunch_key,best,agent_active[:,1],week,bounds_Rtg,aux_cap,ga_param,novelties)
 
-# Plot the global solution
-plt.plot(pro,label="A. Programados")
-plt.plot(ne,label="A. Necesarios + 15%")
-plt.plot(ne/1.15,label="A. Necesarios")
-plt.plot(ne/(1.15*1.1333333),label="Llamadas")
+# # Plot the global solution
+# plt.plot(pro,label="A. Programados")
+# plt.plot(ne,label="A. Necesarios + 15%")
+# plt.plot(ne/1.15,label="A. Necesarios")
+# plt.plot(ne/(1.15*1.1333333),label="Llamadas")
 
-plt.grid()
-plt.legend()
-plt.axis('equal')
-plt.xlabel('Bloque de tiempo (15 min)')
-plt.ylabel('No asesores')
-plt.title('programacion Ret. fija, lunes')
-plt.show()
+# plt.grid()
+# plt.legend()
+# plt.axis('equal')
+# plt.xlabel('Bloque de tiempo (15 min)')
+# plt.ylabel('No asesores')
+# plt.title('programacion Ret. fija, lunes')
+# plt.show()
 # novelties[0][best[0]][int(best[0]):int(best[0])+32]
 
 
