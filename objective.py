@@ -7,11 +7,11 @@ Created on Tue Jul 28 15:48:24 2020
 
 
 import numpy as np
-from math import ceil
+import math
 import statistics
 
 
-def objective_function(pop,novelties_aux_cap,maximum,agent_active,enc_dec):
+def objtv_gen_functn(pop,novelties_aux_cap,maximum,agent_active,enc_dec):
     
     entry = enc_dec[1]
     departure = enc_dec[2]
@@ -71,9 +71,74 @@ def objective_function(pop,novelties_aux_cap,maximum,agent_active,enc_dec):
         ag.append(agents)
         req.append(maximum)
         diff.append(agents - maximum)
-        fitness[i]=statistics.stdev(agents - maximum)    
+        fitness[i]= (((agents-maximum)**2).sum(axis=0))**(1/2)
+        #statistics.stdev(agents - maximum)    
         
     return [fitness,diff,ag,dim_enc] 
+
+def objtv_day_functn(pop,options_days,options_cap,week,agent_active,enc_dec,dim):
+    
+    entry = enc_dec[1]
+    departure = enc_dec[2]
+    break1 = enc_dec[3]
+    break2 = enc_dec[4]
+    training = enc_dec[5]
+    lunch = enc_dec[6]
+    
+    fitness = np.zeros(pop.shape[0])
+    diff = []
+    ag1 = []
+    ag2 = []   
+
+    for i in range(pop.shape[0]):
+        x = pop[i]
+        rostrng1 = np.asarray(dim)
+        rostrng2 = np.asarray(dim)
+        for j in options_cap[int(x[1])]: 
+            for y in training:
+                rostrng1[:][j][rostrng1[:][j] == y] = 1
+                rostrng2[:][j][rostrng2[:][j] == y] = 0
+        
+        for p in training:
+            rostrng1[rostrng1 == p] = 0
+            rostrng2[rostrng2 == p] = 1        
+               
+        rostrng1[rostrng1 == entry] = 1
+        rostrng1[rostrng1 == departure] = 1
+        rostrng1[rostrng1 == break1] = 0
+        rostrng1[rostrng1 == break2] = 0
+        
+        rostrng2[rostrng2 == entry] = 1
+        rostrng2[rostrng2 == departure] = 1
+        rostrng2[rostrng2 == break1] = 0
+        rostrng2[rostrng2 == break2] = 0
+        
+    
+        for l in lunch:
+            rostrng1[rostrng1 == l] = 0  
+            rostrng2[rostrng2 == l] = 0
+    
+        
+        agents1 = np.array(rostrng1).sum(axis=0)
+        agents2 = np.array(rostrng2).sum(axis=0)
+        
+        ag1.append(agents1)
+        ag2.append(agents2)
+        
+        fitness[i] = 0
+        for d in range(len(week)-1):
+            if d in options_days[int(x[0])]:
+                fitness[i] += (((agents1 - week[d])**2).sum(axis=0))**(1/2) 
+                #statistics.stdev(agents1 - week[d])
+            else:
+                fitness[i] += (((agents2 - week[d])**2).sum(axis=0))**(1/2) 
+                #statistics.stdev(agents2 - week[d])
+            
+        
+        
+    return [fitness,ag1,ag2]
+# [fitness,diff,ag,dim_enc] 
+
 
 # def encode(assign,enc_dec):
     

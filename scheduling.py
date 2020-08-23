@@ -262,7 +262,8 @@ def encode_decode(interval, lunch_hour_total, train_hour_total):
     
     return enc_dec
     
-    
+#def decode(dim):
+        
     # aux_cap = [without_l,with_l]
     
     # #aux = [1]*11+[0]+[1]*11+[0]+[1]*9

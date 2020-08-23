@@ -10,11 +10,11 @@ import ga
 import objective
 import matplotlib.pyplot as plt
 import pandas as pd
+from itertools import combinations
 
 
 
-
-def mesh(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec):
+def mesh_general(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec):
     
     lower_bounds = bounds[0]
     upper_bounds = bounds[1]
@@ -48,7 +48,7 @@ def mesh(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec):
         # crossover, mutation, fitness and local search function
         offspring1 = ga.crossover(pop, crossover_rate)
         offspring2 = ga.mutation(pop, mutation_rate)
-        [fitness,diff,ag,dim]  = objective.objective_function(pop,novelties_aux_cap,maximum,agent_active,enc_dec)
+        [fitness,diff,ag,dim]  = objective.objtv_gen_functn(pop,novelties_aux_cap,maximum,agent_active,enc_dec)
         offspring3 = ga.local_search(pop, fitness, lower_bounds, upper_bounds, step_size, rate)
         step_size = step_size*0.98
         if step_size<1:
@@ -59,7 +59,7 @@ def mesh(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec):
         extended_pop[pop_size:pop_size+crossover_rate] = offspring1
         extended_pop[pop_size+crossover_rate:pop_size+crossover_rate+mutation_rate]=offspring2
         extended_pop[pop_size+crossover_rate+mutation_rate:pop_size+crossover_rate+mutation_rate+2*no_variables*rate]=offspring3
-        [fitness,diff,ag,dim]  = objective.objective_function(extended_pop,novelties_aux_cap,maximum,agent_active,enc_dec)
+        [fitness,diff,ag,dim]  = objective.objtv_gen_functn(extended_pop,novelties_aux_cap,maximum,agent_active,enc_dec)
         pop = ga.selection(extended_pop, fitness, pop_size)
         
         print("Generation: ", g, ", current fitness value: ", min(fitness))
@@ -72,7 +72,7 @@ def mesh(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec):
 
     
     # Find the global minimum (global solution)
-    [fitness,diff,ag,dim]  = objective.objective_function(global_best,novelties_aux_cap,maximum,agent_active,enc_dec)
+    [fitness,diff,ag,dim]  = objective.objtv_gen_functn(global_best,novelties_aux_cap,maximum,agent_active,enc_dec)
     index = np.argmin(fitness)
     print("Best solution = ", np.ceil(global_best[index]))
     print("Best fitness value= ", min(fitness))    
@@ -82,6 +82,102 @@ def mesh(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec):
     nes = np.ceil(maximum)
 
     return [best,prog,nes,dim]
+
+
+def mesh_perday(agent_active,week,ga_param,enc_dec,days,dim):
+        
+    options_days = [i for i in combinations(range(len(days)-1),3)] 
+    options_cap = np.random.randint(agent_active.shape[0], size=(5*agent_active.shape[0], int(agent_active.shape[0]/2)))
+    
+    lower_bounds = [0,0]
+    upper_bounds = [len(options_days)-1,options_cap.shape[0]]
+        
+    
+    pop_size = ga_param[0] 
+    crossover_rate = ga_param[1]
+    mutation_rate = ga_param[2] 
+    no_generations = ga_param[3] 
+    step_size = ga_param[4] 
+    rate = ga_param[5] 
+    
+    # Each variable correspond to an agent
+    no_variables = 2
+
+
+    # Initial population of genetic algoritm
+    pop = np.zeros((pop_size,no_variables))
+    for s in range(pop_size):
+        for h in range(no_variables):
+            pop[s,h] = np.random.random_integers(lower_bounds[h],upper_bounds[h])
+    
+    extended_pop = np.zeros((pop_size+crossover_rate+mutation_rate+2*no_variables*rate,pop.shape[1]))    
+    
+    g = 0
+    global_best = np.zeros((no_generations+1,no_variables))
+
+    # Evolution and new generation into the population
+    while g <= no_generations:
+
+        # crossover, mutation, fitness and local search function
+        offspring1 = ga.crossover(pop, crossover_rate)
+        offspring2 = ga.mutation(pop, mutation_rate)
+        [fitness,ag1,ag2]  = objective.objtv_day_functn(pop,options_days,options_cap,week,agent_active,enc_dec,dim)
+        offspring3 = ga.local_search(pop, fitness, lower_bounds, upper_bounds, step_size, rate)
+        step_size = step_size*0.98
+        if step_size<1:
+            step_size = 1
+            
+        # Put into the previous population the new generations    
+        extended_pop[0:pop_size] = pop
+        extended_pop[pop_size:pop_size+crossover_rate] = offspring1
+        extended_pop[pop_size+crossover_rate:pop_size+crossover_rate+mutation_rate]=offspring2
+        extended_pop[pop_size+crossover_rate+mutation_rate:pop_size+crossover_rate+mutation_rate+2*no_variables*rate]=offspring3
+        [fitness,ag1,ag2]  = objective.objtv_day_functn(extended_pop,options_days,options_cap,week,agent_active,enc_dec,dim)
+        pop = ga.selection(extended_pop, fitness, pop_size)
+        
+        print("Generation: ", g, ", current fitness value: ", min(fitness))
+        
+        # Find the local minimum (local solution)
+        index = np.argmin(fitness)
+        current_best = extended_pop[index]
+        global_best[g]=current_best
+        g +=1
+
+    
+    # Find the global minimum (global solution)
+    [fitness,ag1,ag2]  = objective.objtv_day_functn(global_best,options_days,options_cap,week,agent_active,enc_dec,dim)
+    index = np.argmin(fitness)
+    print("Best solution = ", np.ceil(global_best[index]))
+    print("Best fitness value= ", min(fitness))    
+    best = np.ceil(global_best[index])
+    #dife = diff[index]
+    prog1 = ag1[index]
+    prog2 = ag2[index]
+    
+    options_cap2 = {x for x in range(agent_active.shape[0])}
+    options_cap2.difference_update(options_cap[int(best[1])])
+    
+    training = enc_dec[5]
+    rostrng1 = np.asarray(dim)
+    rostrng2 = np.asarray(dim)
+    for j in options_cap[int(best[1])]: 
+        for y in training:
+            rostrng1[:][j][rostrng1[:][j] == y] = 1
+    for k in options_cap2:
+        for z in training:
+            rostrng2[:][k][rostrng2[:][k] == z] = 1
+    
+    options_days2 = {x for x in range(len(week)-1)}
+    options_days2.difference_update(options_days[int(best[0])])    
+    
+    rostrng_total = {}
+    for i in options_days[int(best[0])]:
+        rostrng_total[i] = rostrng1
+    for p in options_days2:
+        rostrng_total[p] = rostrng2
+    
+              
+    return [rostrng_total,prog1,prog2]
 
 # def aux_cap(lunch_key,best,agent_active,week,bounds_Rtg,aux_cap,ga_param,novelties):
     
