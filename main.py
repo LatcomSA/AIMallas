@@ -4,23 +4,13 @@ Created on Thu Aug  6 14:34:47 2020
 
 @author: JassonM0lina
 """
-
-import numpy as np
-import matplotlib.pyplot as plt
-#afrom itertools import permutations, combinations  
-import pandas as pd
-#import mysql.connector
-#import tensorflow as tf
 import strategy
 import scheduling
+import agents
+import rostering
+import forecasting
 
-import datetime
-#import objective
-#import math
-from math import nan
 
-# Agents that are active 
-agent_active = pd.read_excel('./Scheduling/Agents&Nov/agents_nov.xlsx', sheet_name='active',header=None).to_numpy()
 
 # scheduling parameters for active agents
 
@@ -28,6 +18,11 @@ interval = 15 # Change
 
 init_hour = [7,0]
 stop_hour = [22,15]
+
+year = 2020
+month = 8
+day = 27
+date = [day,month,year]
 
 stop_hour_am = [17,45]
 stop_hour_mther = [17,45]
@@ -38,7 +33,6 @@ init_hour_pm = [13,0]
 lunch_time_init = [12,0]
 lunch_time_stop = [15,45]
 
-
 laboral_time = [7,45]
 
 block_break = 1
@@ -46,34 +40,12 @@ lunch_hour_total = [1,0]
 train_hour_total = [1,0]
 
 
+hour_time =[init_hour, stop_hour, laboral_time, stop_hour_am, 
+            init_hour_pm, stop_hour_mther, stop_hour_sede,
+            lunch_time_init, lunch_time_stop,lunch_hour_total]                                                                                                          
 
-# Days to make forescating. 1 to active and 0 to desactive
 
-monday  = 1
-tuesday = 1
-wednesday = 1 
-thursday = 1
-friday = 1
-saturday = 1
-sunday = 1
-
-days = [monday,tuesday,wednesday,thursday,friday,saturday,sunday]
-
-# encode and decode information 
-enc_dec = scheduling.encode_decode(interval, lunch_hour_total, train_hour_total)
-
-# forecast for each block time
-fct = pd.read_excel('./Forecasting/forecst.xlsx', sheet_name='forecst',header=None)
-forcst = np.flip(fct.to_numpy())
-
-# Forecasting per day
-monday_fct = np.flip(forcst[0:int(forcst.shape[0]/7)][:,0])
-tuesday_fct = np.flip(forcst[int(forcst.shape[0]/7):int(forcst.shape[0]/7*2)][:,0])
-wednesday_fct = np.flip(forcst[int(forcst.shape[0]/7*2):int(forcst.shape[0]/7*3)][:,0])
-thursday_fct = np.flip(forcst[int(forcst.shape[0]/7*3):int(forcst.shape[0]/7*4)][:,0])
-friday_fct = np.flip(forcst[int(forcst.shape[0]/7*4):int(forcst.shape[0]/7*5)][:,0])
-saturday_fct = np.flip(forcst[int(forcst.shape[0]/7*5):int(forcst.shape[0]/7*6)][:,0])
-sunday_fct = np.flip(forcst[int(forcst.shape[0]/7*6):int(forcst.shape[0]/7*7)][:,0])
+days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 
 
 # Parameters of the genetic algoritm (AI)    
@@ -84,224 +56,180 @@ no_generations = 10
 step_size = 5
 rate = 10
 
+ga_param = [pop_size,crossover_rate,mutation_rate,no_generations,step_size,rate]  
 
 
 
 ## ---------------------------------------------------------------------------
 ## General Dimensionig 
 ## ---------------------------------------------------------------------------
+[sched_agent,agent_active] = agents.agents_active(days)
 
-hour_time =[init_hour, stop_hour, laboral_time, stop_hour_am, 
-            init_hour_pm, stop_hour_mther, stop_hour_sede,
-            lunch_time_init, lunch_time_stop,lunch_hour_total]                                                                                                          
+[week,maximum] = forecasting.forecst() 
 
+enc_dec = scheduling.encode_decode(interval, lunch_hour_total, train_hour_total)
 
 novelties = scheduling.schedul_gen(interval, hour_time)
-
 
 novelties_aux_cap = scheduling.sched_aux_cap(interval, novelties, hour_time)
 
 bounds = scheduling.sched_bounds_ga(novelties_aux_cap, agent_active)
 
-ga_param = [pop_size,crossover_rate,mutation_rate,no_generations,step_size,rate]  
-
-week = [monday_fct,tuesday_fct,wednesday_fct,thursday_fct,friday_fct,saturday_fct,sunday_fct]
-             
-maximum = []
-for d in range(int(forcst.shape[0]/7)):
-    maximum.append(np.ceil(max([monday_fct[d], tuesday_fct[d], wednesday_fct[d], thursday_fct[d], friday_fct[d]])))
-   
-
 [best,prog,nes,dim] = strategy.mesh_general(agent_active[:,1],maximum,bounds,novelties_aux_cap,ga_param,enc_dec)
 
+rostrng_total = strategy.mesh_perday(agent_active[:,1],week,ga_param,enc_dec,days,dim)
 
-# Plot the global solution
-plt.plot(prog,label="A. Programados")
-plt.plot(nes,label="A. Necesarios + 15%")
-plt.plot(nes/1.15,label="A. Necesarios")
-plt.plot(nes/(1.15*1.1333333),label="Llamadas")
+rostering.rostrng_info(rostrng_total,enc_dec,interval,lunch_hour_total, train_hour_total,block_break,sched_agent,agent_active)
+    
+sched_agent = rostering.rostrng_act(sched_agent,agent_active)
 
-plt.grid()
-plt.legend()
-plt.axis('equal')
-plt.xlabel('Bloque de tiempo (15 min)')
-plt.ylabel('No asesores')
-plt.title('programacion Ret. fija, maximo')
-plt.show()
-
-dim = []
-for j in range(best.shape[0]):           
-    if agent_active[:,1][j] == 'NO':                
-       assign = novelties_aux_cap[0][int(best[j])]
-       dim.append(assign)               
-       
-    elif agent_active[:,1][j] == 'AM':    
-       assign = novelties_aux_cap[1][int(best[j])]
-       dim.append(assign)  
-       
-    elif agent_active[:,1][j] == 'PM':     
-       assign = novelties_aux_cap[2][int(best[j])]
-       dim.append(assign)  
-       
-    elif agent_active[:,1][j] == 'MAMA':
-       assign = novelties_aux_cap[3][int(best[j])]
-       dim.append(assign) 
-       
-    elif agent_active[:,1][j] == 'SEDE':
-       assign = novelties_aux_cap[4][int(best[j])]
-       dim.append(assign)                  
-       
-    else:
-       assign = novelties_aux_cap[5][int(best[j])]
-       dim.append(assign)   
-
-[best,prog1,prog2] = strategy.mesh_perday(agent_active[:,1],week,ga_param,enc_dec,days,dim)
-
-entry = enc_dec[1]
-departure = enc_dec[2]
-break1 = enc_dec[3]
-break2 = enc_dec[4]
-training = enc_dec[5]
-lunch = enc_dec[6]
-
-
-block_lunch = int((lunch_hour_total[0]*60+lunch_hour_total[1])/interval)
-block_training = int((train_hour_total[0]*60+train_hour_total[1])/interval)
+rostering.rostrng_doc(sched_agent,date)
 
 
 
-class Agent:    
-    def __init__(self,name):
-        self.name = name
-        self.info = []
+#sht['A1'].value = pd.DataFrame(respta_info) 
+            #columns= ['name','preturno', 'ingreso','salida','out capa','in capa','sal break1','ent break2','sal break2','sal break2','ent lunch', 'sal lunch'])          
+                    
+            
+
+    
+# horario={"asignacion": ['preturno', 'ingreso','salida','out capa','in capa','sal break1','ent break2','sal break2','sal break2',
+#                         'ent lunch', 'sal lunch']}
+
+# for x in sched_agent:
+#     horario[sched_agent.get(x).name] = [sched_agent.get(x).preturn,
+#                                         sched_agent.get(x).entry,
+#                                         sched_agent.get(x).departure,
+#                                         sched_agent.get(x).training_init,
+#                                         sched_agent.get(x).training_stop,
+#                                         sched_agent.get(x).break1_init,
+#                                         sched_agent.get(x).break1_stop,
+#                                         sched_agent.get(x).break2_init,
+#                                         sched_agent.get(x).break2_stop,
+#                                         sched_agent.get(x).lunch_init,
+#                                         sched_agent.get(x).lunch_stop]
+
+# export = pd.DataFrame(horario)
+
+# with pd.ExcelWriter('./Rostering/agosto/24_28_agos_ret.xlsx',engine="openpyxl",mode='a') as writer:
+#       export.to_excel(writer, sheet_name='horario',index = False) 
+
+
+
+        # for z in sched_agent:
+        #     sched_agent.get(z).graph.add_node(sched_agent.get(z).name)
+        #     for w in range(1,num_weeks+1):
+        #         week_agent = {sched_agent.get(z).name:w}
+        #         sched_agent.get(z).graph.add_edge(sched_agent.get(z).name,w)
+        #         for d in days:
+        #             sched_agent.get(z).graph.add_edge(w,"{}_{}".format(d,w))
+        # for t in total_auxs:
+        #     sched_agent.get(z).graph.add_edge("{}_{}".format(x,w),"{}_{}_{}".format(t,d,w))
+        #     for m in drtn:
+        #         sched_agent.get(x).graph.add_edge("{}_{}_{}".format(t,d,w),"{}_{}_{}_{}".format(t,d,w,m))
+
+
+
+
+# class Agent:    
+#     def __init__(self,element):
+#         self.element = element
+#         self.info = []
+#     def sched_preturn(agent,entry,interval,element,baseElement):
+#         if entry == 0:           
+#             h,m = divmod(((60*24)/interval-1)*interval,60)
+#         else:   
+#             h,m = divmod((entry-1)*interval,60)
+#         self.preturn = datetime.time(h,m)
+                   
+#     def sched_entry(self,entry,interval):
+#         h,m = divmod(entry*interval,60)
+#         self.entry = datetime.time(h,m)
+    
+#     def sched_break1(self,break1,block_break,interval):
+#         h,m = divmod(break1*interval,60)
+#         h1,m1 = divmod((break1+block_break)*interval,60)
+#         self.break1_init = datetime.time(h,m)
+#         self.break1_stop = datetime.time(h1,m1)
         
-    def sched_preturn(self,entry,interval):
-        if entry == 0:           
-           h,m = divmod(((60*24)/interval-1)*interval,60)
-        else:   
-           h,m = divmod((entry-1)*interval,60)
-        self.preturn = datetime.time(h,m)
-                
-    def sched_entry(self,entry,interval):
-        h,m = divmod(entry*interval,60)
-        self.entry = datetime.time(h,m)
+#     def sched_break2(self, break2,block_break,interval):
+#         h,m = divmod(break2*interval,60)
+#         h1,m1 = divmod((break2+block_break)*interval,60)
+#         self.break2_init = datetime.time(h,m)
+#         self.break2_stop = datetime.time(h1,m1)
     
-    def sched_break1(self,break1,block_break,interval):
-        h,m = divmod(break1*interval,60)
-        h1,m1 = divmod((break1+block_break)*interval,60)
-        self.break1_init = datetime.time(h,m)
-        self.break1_stop = datetime.time(h1,m1)
-        
-    def sched_break2(self, break2,block_break,interval):
-        h,m = divmod(break2*interval,60)
-        h1,m1 = divmod((break2+block_break)*interval,60)
-        self.break2_init = datetime.time(h,m)
-        self.break2_stop = datetime.time(h1,m1)
+#     def sched_training(self,training,block_training,interval):    
+#         h,m = divmod(training*interval,60)
+#         h1,m1 = divmod((training+block_training)*interval,60)
+#         self.training_init = datetime.time(h,m)
+#         self.training_stop = datetime.time(h1,m1)
     
-    def sched_training(self,training,block_training,interval):    
-        h,m = divmod(training*interval,60)
-        h1,m1 = divmod((training+block_training)*interval,60)
-        self.training_init = datetime.time(h,m)
-        self.training_stop = datetime.time(h1,m1)
+#     def sched_lunch(self,lunch,block_lunch,interval):
+#         h,m = divmod(lunch*interval,60)
+#         h1,m1 = divmod((lunch+block_lunch)*interval,60)
+#         self.lunch_init = datetime.time(h,m)
+#         self.lunch_stop = datetime.time(h1,m1)
     
-    def sched_lunch(self,lunch,block_lunch,interval):
-        h,m = divmod(lunch*interval,60)
-        h1,m1 = divmod((lunch+block_lunch)*interval,60)
-        self.lunch_init = datetime.time(h,m)
-        self.lunch_stop = datetime.time(h1,m1)
+#     def sched_departure(self,departure,interval):
+#         h,m = divmod((departure+1)*interval,60)
+#         self.departure = datetime.time(h,m)
+
+
+
+
+
+
+
+# def addElement(agent,element,baseElement):
+#     subelement = findAgent(agent,baseElement)   
+#     subelement.info.append(Agent(element))
     
-    def sched_departure(self,departure,interval):
-        h,m = divmod((departure+1)*interval,60)
-        self.departure = datetime.time(h,m)
-
-
-def agregarElemento(arbol,elemento,elementoPadre):
-    subarbol = buscarSubarbol(arbol,elementoPadre);
-    subarbol.hijos.append(Agent(elemento))
+# def findAgent(agent,element):
+#     if agent.element == element:
+#         return agent
+#     for agentGraph in agent.info:
+#         Agentfinded = findAgent(agent,element)
+#         if (Agentfinded != None):
+#             return Agentfinded
+#     return None
     
-def buscarSubarbol(arbol,elemento):
-    if arbol.elemento == elemento:
-        return arbol
-    for subarbol in arbol.hijos:
-        arbolBuscado = buscarSubarbol(subarbol, elemento)
-        if (arbolBuscado != None):
-            return arbolBuscado
-    return None                
-                
 
-sched_agent = {x: Agent(agent_active[x,0]) for x in range(agent_active.shape[0])}
+# sched_agent = {x: Agent(agent_active[x,0]) for x in range(agent_active.shape[0])}
 
-for x in range(len(dim)):
-    entry_count = 0
-    break1_count = 0
-    break2_count = 0
-    training_count = 0
-    lunch_count = 0
-    for y in range(dim[x].shape[0]):
-        if dim[x][y] == entry:
-           sched_agent.get(x).sched_entry(y,interval)
-           sched_agent.get(x).sched_preturn(y,interval)
-           entry_count += 1
-        elif dim[x][y] == departure:
-           sched_agent.get(x).sched_departure(y,interval)
-        elif dim[x][y] == break1:
-           sched_agent.get(x).sched_break1(y,block_break,interval) 
-           break1_count += 1
-        elif dim[x][y] == break2:
-           sched_agent.get(x).sched_break2(y,block_break,interval) 
-           break2_count += 1
-        elif dim[x][y] == training[0]:   
-            sched_agent.get(x).sched_training(y,block_training,interval) 
-            training_count += 1
-        elif dim[x][y] == lunch[0]:   
-            sched_agent.get(x).sched_lunch(y,block_lunch,interval)
-            lunch_count += 1
-    if entry_count == 0:
-       sched_agent.get(x).preturn = nan 
-       sched_agent.get(x).entry = nan 
-       sched_agent.get(x).departure = nan 
-       sched_agent.get(x).break1_init = nan 
-       sched_agent.get(x).break1_stop = nan 
-       sched_agent.get(x).break2_init = nan 
-       sched_agent.get(x).break2_stop = nan
-       sched_agent.get(x).training_init = nan 
-       sched_agent.get(x).training_stop = nan
-       sched_agent.get(x).lunch_init = nan 
-       sched_agent.get(x).lunch_stop = nan 
-    if break1_count == 0:
-       sched_agent.get(x).break1_init = nan 
-       sched_agent.get(x).break1_stop = nan 
-    if break2_count == 0:
-       sched_agent.get(x).break2_init = nan 
-       sched_agent.get(x).break2_stop = nan 
-    if training_count == 0:
-       sched_agent.get(x).training_init = nan 
-       sched_agent.get(x).training_stop = nan
-    if lunch_count == 0:
-       sched_agent.get(x).lunch_init = nan 
-       sched_agent.get(x).lunch_stop = nan 
+# for w in range(1,num_weeks+1):
+#     for z in sched_agent:
+#         addElement(sched_agent.get(z),w,sched_agent.get(z).element)
     
-horario={"asignacion": ['preturno', 'ingreso','salida','out capa','in capa','sal break1','ent break2','sal break2','sal break2',
-                        'ent lunch', 'sal lunch']}
+# for d in range(len(days)): 
+#     for z in sched_agent:
+#         for depth2 in sched_agent.get(z).info:
+#             addElement(depth2,days[d],depth2.element)
 
-for x in sched_agent:
-    horario[sched_agent.get(x).name] = [sched_agent.get(x).preturn,
-                                        sched_agent.get(x).entry,
-                                        sched_agent.get(x).departure,
-                                        sched_agent.get(x).training_init,
-                                        sched_agent.get(x).training_stop,
-                                        sched_agent.get(x).break1_init,
-                                        sched_agent.get(x).break1_stop,
-                                        sched_agent.get(x).break2_init,
-                                        sched_agent.get(x).break2_stop,
-                                        sched_agent.get(x).lunch_init,
-                                        sched_agent.get(x).lunch_stop]
 
-export = pd.DataFrame(horario)
 
-with pd.ExcelWriter('./Rostering/agosto/24_28_agos_ret.xlsx',engine="openpyxl",mode='a') as writer:
-      export.to_excel(writer, sheet_name='horario',index = False) 
+# def ejecutarProfundidadPrimero(arbol, funcion):
+#     funcion(arbol.element)
+#     for hijo in arbol.info:
+#         ejecutarProfundidadPrimero(hijo, funcion)
 
+# def printElement(element):
+#     print(element)
+# ejecutarProfundidadPrimero(sched_agent.get(4), printElement)
+
+# def sched_preturn(agent,entry,interval,element,baseElement):
+#     if entry == 0:           
+#        h,m = divmod(((60*24)/interval-1)*interval,60)
+#     else:   
+#        h,m = divmod((entry-1)*interval,60)
+#     subelement = buscarSubarbol(agent,baseElement)   
+#     subelement.info.append(Agent(element))
+#     self.preturn = datetime.time(h,m)
+
+    # def sched_entry(self,entry,interval):
+    #     h,m = divmod(entry*interval,60)
+    #     self.entry = datetime.time(h,m)
+
+#for z in 
             
 # class agent:
     
@@ -327,18 +255,18 @@ with pd.ExcelWriter('./Rostering/agosto/24_28_agos_ret.xlsx',engine="openpyxl",m
 
 
 # Plot monday
-plt.plot(prog1,label="A. Programados")
-plt.plot(week[0],label="A. Necesarios + 15%")
-plt.plot(week[0]/1.15,label="A. Necesarios")
-plt.plot(week[0]/(1.15*1.1333333),label="Llamadas")
+# plt.plot(prog1,label="A. Programados")
+# plt.plot(week[0],label="A. Necesarios + 15%")
+# plt.plot(week[0]/1.15,label="A. Necesarios")
+# plt.plot(week[0]/(1.15*1.1333333),label="Llamadas")
 
-plt.grid()
-plt.legend()
-plt.axis('equal')
-plt.xlabel('Bloque de tiempo (15 min)')
-plt.ylabel('No asesores')
-plt.title('programacion Ret. fija, lunes')
-plt.show()
+# plt.grid()
+# plt.legend()
+# plt.axis('equal')
+# plt.xlabel('Bloque de tiempo (15 min)')
+# plt.ylabel('No asesores')
+# plt.title('programacion Ret. fija, lunes')
+# plt.show()
 
 # # Plot tuesday
 # plt.plot(prog1,label="A. Programados")

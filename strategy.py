@@ -11,7 +11,7 @@ import objective
 import matplotlib.pyplot as plt
 import pandas as pd
 from itertools import combinations
-
+from time import process_time
 
 
 def mesh_general(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec):
@@ -26,7 +26,6 @@ def mesh_general(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec)
     no_generations = ga_param[3] 
     step_size = ga_param[4] 
     rate = ga_param[5] 
-    
     # Each variable correspond to an agent
     no_variables = agent_active.shape[0]
 
@@ -80,7 +79,46 @@ def mesh_general(agent_active,maximum,bounds,novelties_aux_cap,ga_param,enc_dec)
     #dife = diff[index]
     prog = ag[index]
     nes = np.ceil(maximum)
-
+    
+    dim = []
+    for j in range(best.shape[0]):           
+        if agent_active[j] == 'NO':                
+           assign = novelties_aux_cap[0][int(best[j])]
+           dim.append(assign)               
+           
+        elif agent_active[j] == 'AM':    
+           assign = novelties_aux_cap[1][int(best[j])]
+           dim.append(assign)  
+           
+        elif agent_active[j] == 'PM':     
+           assign = novelties_aux_cap[2][int(best[j])]
+           dim.append(assign)  
+           
+        elif agent_active[j] == 'MAMA':
+           assign = novelties_aux_cap[3][int(best[j])]
+           dim.append(assign) 
+           
+        elif agent_active[j] == 'SEDE':
+           assign = novelties_aux_cap[4][int(best[j])]
+           dim.append(assign)                  
+           
+        else:
+           assign = novelties_aux_cap[5][int(best[j])]
+           dim.append(assign)   
+           
+    # Plot the global solution
+    plt.plot(prog,label="A. Programados")
+    plt.plot(nes,label="A. Necesarios + 15%")
+    plt.plot(nes/1.15,label="A. Necesarios")
+    plt.plot(nes/(1.15*1.1333333),label="Llamadas")
+    
+    plt.grid()
+    plt.legend()
+    plt.axis('equal')
+    plt.xlabel('Bloque de tiempo (15 min)')
+    plt.ylabel('No asesores')
+    plt.title('programacion Ret. fija, maximo')
+    plt.show()
     return [best,prog,nes,dim]
 
 
@@ -92,14 +130,14 @@ def mesh_perday(agent_active,week,ga_param,enc_dec,days,dim):
     lower_bounds = [0,0]
     upper_bounds = [len(options_days)-1,options_cap.shape[0]]
         
-    
+    t1_start = process_time()
     pop_size = ga_param[0] 
     crossover_rate = ga_param[1]
     mutation_rate = ga_param[2] 
-    no_generations = ga_param[3] 
-    step_size = ga_param[4] 
+    no_generations = ga_param[3] #300000000000
+    step_size = (upper_bounds[1]-lower_bounds[1])*0.001#ga_param[4] 
     rate = ga_param[5] 
-    
+    computing_time = 30
     # Each variable correspond to an agent
     no_variables = 2
 
@@ -108,42 +146,66 @@ def mesh_perday(agent_active,week,ga_param,enc_dec,days,dim):
     pop = np.zeros((pop_size,no_variables))
     for s in range(pop_size):
         for h in range(no_variables):
-            pop[s,h] = np.random.random_integers(lower_bounds[h],upper_bounds[h])
+            pop[s,h] = np.random.uniform(lower_bounds[h],upper_bounds[h])
     
     extended_pop = np.zeros((pop_size+crossover_rate+mutation_rate+2*no_variables*rate,pop.shape[1]))    
     
+    A = []
+    a= 2  
     g = 0
-    global_best = np.zeros((no_generations+1,no_variables))
-
+    #global_best = np.zeros((no_generations+1,no_variables))
+    global_best = pop[0]
+    k=0
     # Evolution and new generation into the population
     while g <= no_generations:
-
-        # crossover, mutation, fitness and local search function
-        offspring1 = ga.crossover(pop, crossover_rate)
-        offspring2 = ga.mutation(pop, mutation_rate)
-        [fitness,ag1,ag2]  = objective.objtv_day_functn(pop,options_days,options_cap,week,agent_active,enc_dec,dim)
-        offspring3 = ga.local_search(pop, fitness, lower_bounds, upper_bounds, step_size, rate)
-        step_size = step_size*0.98
-        if step_size<1:
-            step_size = 1
+        for i in range(no_generations):
+            # crossover, mutation, fitness and local search function
+            offspring1 = ga.crossover(pop, crossover_rate)
+            offspring2 = ga.mutation(pop, mutation_rate)
+            [fitness,ag1,ag2]  = objective.objtv_day_functn(pop,options_days,options_cap,week,agent_active,enc_dec,dim)
+            offspring3 = ga.local_search(pop, fitness, lower_bounds, upper_bounds, step_size, rate)
+            step_size = step_size*0.98
+            if step_size<(upper_bounds[1]-lower_bounds[1])*0.001:
+                step_size = (upper_bounds[1]-lower_bounds[1])*0.001
+                
+            # Put into the previous population the new generations    
+            extended_pop[0:pop_size] = pop
+            extended_pop[pop_size:pop_size+crossover_rate] = offspring1
+            extended_pop[pop_size+crossover_rate:pop_size+crossover_rate+mutation_rate]=offspring2
+            extended_pop[pop_size+crossover_rate+mutation_rate:pop_size+crossover_rate+mutation_rate+2*no_variables*rate]=offspring3
+            [fitness,ag1,ag2]  = objective.objtv_day_functn(extended_pop,options_days,options_cap,week,agent_active,enc_dec,dim)
+            pop = ga.selection(extended_pop, fitness, pop_size)
             
-        # Put into the previous population the new generations    
-        extended_pop[0:pop_size] = pop
-        extended_pop[pop_size:pop_size+crossover_rate] = offspring1
-        extended_pop[pop_size+crossover_rate:pop_size+crossover_rate+mutation_rate]=offspring2
-        extended_pop[pop_size+crossover_rate+mutation_rate:pop_size+crossover_rate+mutation_rate+2*no_variables*rate]=offspring3
-        [fitness,ag1,ag2]  = objective.objtv_day_functn(extended_pop,options_days,options_cap,week,agent_active,enc_dec,dim)
-        pop = ga.selection(extended_pop, fitness, pop_size)
-        
-        print("Generation: ", g, ", current fitness value: ", min(fitness))
-        
-        # Find the local minimum (local solution)
-        index = np.argmin(fitness)
-        current_best = extended_pop[index]
-        global_best[g]=current_best
-        g +=1
-
-    
+            print("Generation: ", g, ", current fitness value: ", min(fitness))
+            
+            # Find the local minimum (local solution)
+            #index = np.argmin(fitness)
+            #current_best = extended_pop[index]
+            #global_best[g]=current_best
+            A.append(min(fitness))
+            g +=1
+            if i>=a:
+                if sum(abs(np.diff(A[g-a:g]))) <= 0.005:
+                    index = np.argmin(fitness)
+                    current_best = extended_pop[index]
+                    pop = np.zeros((pop_size,no_variables))
+                    for s in range(pop_size):#(pop_size - 1):
+                        for h in range(no_variables):
+                            pop[s,h] = np.random.uniform(lower_bounds[h], upper_bounds[h])
+                    pop[pop_size - 1:pop_size] = current_best
+                    step_size = (upper_bounds[1]-lower_bounds[1])*0.02
+                    global_best = np.vstack((global_best,current_best))
+                    #k +=1
+                    break
+        #     t1_stop = process_time()
+        #     time_elapsed = t1_stop - t1_start
+        #     if time_elapsed >= computing_time:
+        #         break
+        # if time_elapsed >= computing_time:
+        #     break
+                
+                
+                
     # Find the global minimum (global solution)
     [fitness,ag1,ag2]  = objective.objtv_day_functn(global_best,options_days,options_cap,week,agent_active,enc_dec,dim)
     index = np.argmin(fitness)
@@ -176,8 +238,7 @@ def mesh_perday(agent_active,week,ga_param,enc_dec,days,dim):
     for p in options_days2:
         rostrng_total[p] = rostrng2
     
-              
-    return [rostrng_total,prog1,prog2]
+    return rostrng_total
 
 # def aux_cap(lunch_key,best,agent_active,week,bounds_Rtg,aux_cap,ga_param,novelties):
     

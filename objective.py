@@ -94,10 +94,10 @@ def objtv_day_functn(pop,options_days,options_cap,week,agent_active,enc_dec,dim)
         x = pop[i]
         rostrng1 = np.asarray(dim)
         rostrng2 = np.asarray(dim)
-        for j in options_cap[int(x[1])]: 
+        for h in options_cap[int(x[1])]: 
             for y in training:
-                rostrng1[:][j][rostrng1[:][j] == y] = 1
-                rostrng2[:][j][rostrng2[:][j] == y] = 0
+                rostrng1[:][h][rostrng1[:][h] == y] = 1
+                rostrng2[:][h][rostrng2[:][h] == y] = 0
         
         for p in training:
             rostrng1[rostrng1 == p] = 0
