@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+0# -*- coding: utf-8 -*-
 """
 Created on Tue Aug 25 13:20:09 2020
 
@@ -11,15 +11,16 @@ import pandas as pd
 #import mysql.connector
 
 class Agent:
-    def __init__(self,name):
+    def __init__(self,name,doc):
         self.name = name
+        self.doc = doc
         self.graph = nx.Graph()
 
 def agents_active(days):
 
     agent_active = pd.read_excel('./Scheduling/Agents&Nov/agents_nov.xlsx', sheet_name='active',header=None).to_numpy()
     
-    sched_agent = {x: Agent(agent_active[x,0]) for x in range(agent_active.shape[0])}
+    sched_agent = {x: Agent(agent_active[x,0],agent_active[x,2]) for x in range(agent_active.shape[0])}
     
     for z in sched_agent:
         sched_agent.get(z).graph.add_node(sched_agent.get(z).name)

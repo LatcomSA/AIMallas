@@ -10,30 +10,32 @@ import agents
 import rostering
 import forecasting
 
-
-
 # scheduling parameters for active agents
 
-interval = 15 # Change 
+interval = 30 # Change 
 
 init_hour = [7,0]
-stop_hour = [22,15]
+stop_hour = [23,0]
 
 year = 2020
-month = 8
-day = 27
+month = 9
+day = 21
 date = [day,month,year]
 
-stop_hour_am = [17,45]
-stop_hour_mther = [17,45]
-stop_hour_sede = [15,45]
+init_hour_am = [7,0]
+stop_hour_am = [18,0]
 
-init_hour_pm = [13,0]
+stop_hour_sede = [19,0]
+
+init_hour_mther = [7,0]
+stop_hour_mther = [23,0]
+
+init_hour_pm = [10,30]
 
 lunch_time_init = [12,0]
-lunch_time_stop = [15,45]
+lunch_time_stop = [15,30]
 
-laboral_time = [7,45]
+laboral_time = [8,0]
 
 block_break = 1
 lunch_hour_total = [1,0]
@@ -42,7 +44,8 @@ train_hour_total = [1,0]
 
 hour_time =[init_hour, stop_hour, laboral_time, stop_hour_am, 
             init_hour_pm, stop_hour_mther, stop_hour_sede,
-            lunch_time_init, lunch_time_stop,lunch_hour_total]                                                                                                          
+            lunch_time_init, lunch_time_stop,lunch_hour_total,init_hour_mther,
+            init_hour_am]                                                   
 
 
 days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
@@ -52,7 +55,7 @@ days = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday']
 pop_size = 100
 crossover_rate = 50
 mutation_rate = 50
-no_generations = 10
+no_generations = 40
 step_size = 5
 rate = 10
 
@@ -69,15 +72,21 @@ ga_param = [pop_size,crossover_rate,mutation_rate,no_generations,step_size,rate]
 
 enc_dec = scheduling.encode_decode(interval, lunch_hour_total, train_hour_total)
 
-novelties = scheduling.schedul_gen(interval, hour_time)
+novelties,new_nov_agent = scheduling.schedul_gen(interval, hour_time,agent_active)
 
-novelties_aux_cap = scheduling.sched_aux_cap(interval, novelties, hour_time)
+novelties_aux_cap = scheduling.sched_aux_cap(interval, novelties, hour_time,agent_active[:,1])
 
-bounds = scheduling.sched_bounds_ga(novelties_aux_cap, agent_active)
+bounds = scheduling.sched_bounds_ga(novelties_aux_cap, agent_active[:,1])
 
 [best,prog,nes,dim] = strategy.mesh_general(agent_active[:,1],maximum,bounds,novelties_aux_cap,ga_param,enc_dec)
 
 rostrng_total = strategy.mesh_perday(agent_active[:,1],week,ga_param,enc_dec,days,dim)
+
+novelties_aux_fds= scheduling.sched_aux_fds(interval, novelties, hour_time, agent_active)
+
+bounds_fds = scheduling.sched_bounds_ga(novelties_aux_fds, new_nov_agent)
+
+rostrng_total = strategy.mesh_fds(agent_active,week,ga_param,enc_dec,rostrng_total,bounds_fds,novelties_aux_fds,new_nov_agent)
 
 rostering.rostrng_info(rostrng_total,enc_dec,interval,lunch_hour_total, train_hour_total,block_break,sched_agent,agent_active)
     

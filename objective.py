@@ -9,6 +9,8 @@ Created on Tue Jul 28 15:48:24 2020
 import numpy as np
 import math
 import statistics
+from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import median_absolute_error
 
 
 def objtv_gen_functn(pop,novelties_aux_cap,maximum,agent_active,enc_dec):
@@ -29,6 +31,7 @@ def objtv_gen_functn(pop,novelties_aux_cap,maximum,agent_active,enc_dec):
     for i in range(pop.shape[0]):
         x = pop[i]
         dim = []
+        count_static = 0
         for j in range(x.shape[0]):           
             if agent_active[j] == 'NO':                
                assign = novelties_aux_cap[0][int(x[j])]
@@ -48,11 +51,15 @@ def objtv_gen_functn(pop,novelties_aux_cap,maximum,agent_active,enc_dec):
                
             elif agent_active[j] == 'SEDE':
                assign = novelties_aux_cap[4][int(x[j])]
-               dim.append(assign)                  
-               
+               dim.append(assign)
+
+            elif agent_active[j] == 'ESPECIAL':                  
+                   assign = novelties_aux_cap[5][int(x[j])]
+                   dim.append(assign)                      
             else:
-               assign = novelties_aux_cap[5][int(x[j])]
-               dim.append(assign)     
+                   assign = novelties_aux_cap[6][count_static][int(x[j])]
+                   dim.append(assign)
+                   count_static += 1
         
         dim_enc = np.array(dim)
     
@@ -71,9 +78,10 @@ def objtv_gen_functn(pop,novelties_aux_cap,maximum,agent_active,enc_dec):
         ag.append(agents)
         req.append(maximum)
         diff.append(agents - maximum)
-        fitness[i]= (((agents-maximum)**2).sum(axis=0))**(1/2)
+        fitness[i]= statistics.stdev(agents - maximum) 
+        #median_absolute_error(maximum,agents)
         #statistics.stdev(agents - maximum)    
-        
+        #(((agents-maximum)**2).sum(axis=0))**(1/2)
     return [fitness,diff,ag,dim_enc] 
 
 def objtv_day_functn(pop,options_days,options_cap,week,agent_active,enc_dec,dim):
@@ -128,15 +136,24 @@ def objtv_day_functn(pop,options_days,options_cap,week,agent_active,enc_dec,dim)
         fitness[i] = 0
         for d in range(len(week)-1):
             if d in options_days[int(x[0])]:
-                fitness[i] += (((agents1 - week[d])**2).sum(axis=0))**(1/2) 
+                fitness[i] += statistics.stdev(agents1 - week[d])
+                #median_absolute_error(week[d],agents1)
                 #statistics.stdev(agents1 - week[d])
+                #(((agents1 - week[d])**2).sum(axis=0))**(1/2) 
+                #
             else:
-                fitness[i] += (((agents2 - week[d])**2).sum(axis=0))**(1/2) 
+                fitness[i] += statistics.stdev(agents2 - week[d])
+                ##median_absolute_error(week[d],agents1)
                 #statistics.stdev(agents2 - week[d])
-            
-        
+                #(((agents2 - week[d])**2).sum(axis=0))**(1/2) 
+                #
+                
         
     return [fitness,ag1,ag2]
+
+
+
+
 # [fitness,diff,ag,dim_enc] 
 
 

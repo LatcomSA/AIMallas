@@ -30,7 +30,7 @@ def rostrng_info(rostrng_total,enc_dec,interval,lunch_hour_total, train_hour_tot
     
     for d in rostrng_total:  
         dim = rostrng_total.get(d)
-        for x in range(len(dim)):
+        for x in dim:
             entry_count = 0
             break1_count = 0
             break2_count = 0
@@ -41,9 +41,9 @@ def rostrng_info(rostrng_total,enc_dec,interval,lunch_hour_total, train_hour_tot
                 if dim[x][y] == entry:
                     h1,m1 = divmod(y*interval,60)
                     if y == 0:           
-                        h,m = divmod(((60*24)/interval-1)*interval,60)
+                        h,m = divmod(((60*24)/interval-1)*interval-15,60)
                     else:   
-                        h,m = divmod((y-1)*interval,60)
+                        h,m = divmod((y*interval)-15,60)
                     caux_sched[0]=datetime.time(h,m)
                     caux_sched[1]=nan
                     caux_sched[2]=datetime.time(h1,m1)
@@ -59,13 +59,13 @@ def rostrng_info(rostrng_total,enc_dec,interval,lunch_hour_total, train_hour_tot
                     training_count += 1
                 elif dim[x][y] == break1:
                     h,m = divmod(y*interval,60)
-                    h1,m1 = divmod((y+block_break)*interval,60)
+                    h1,m1 = divmod((y*interval)+15,60)
                     caux_sched[6] = datetime.time(h,m)
                     caux_sched[7] = datetime.time(h1,m1)
                     break1_count += 1
                 elif dim[x][y] == break2:
                     h,m = divmod(y*interval,60)
-                    h1,m1 = divmod((y+block_break)*interval,60)
+                    h1,m1 = divmod((y*interval)+15,60)
                     caux_sched[8] =datetime.time(h,m)
                     caux_sched[9] = datetime.time(h1,m1)
                     break2_count += 1
@@ -178,6 +178,7 @@ def rostrng_doc(sched_agent,date):
                        else:
                             train_row = np.zeros([1,6],dtype='O')
                             train_row[0,0] = agent.name
+                            train_row[0,1] = agent.doc
                             new_date = date_init + datetime.timedelta(days=d)               
                             train_row[0,2]= new_date.strftime('%d/%m/%Y')
                             train_stop = agent.graph["training_{}_{}".format(days[d],agent.name)]["training_{}_{}_stop".format(days[d],agent.name)]['time']                 
@@ -194,6 +195,7 @@ def rostrng_doc(sched_agent,date):
                         else:
                             row_massive = np.zeros([1,7],dtype='O')
                             row_massive[0,0]= agent.name
+                            row_massive[0,1] = agent.doc
                             new_date = date_init + datetime.timedelta(days=d)               
                             row_massive[0,2]= new_date.strftime('%d/%m/%Y')
                             row_massive[0,3]= new_date.strftime('%d/%m/%Y')
